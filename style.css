@@ -1,0 +1,133 @@
+body {
+  margin: 0;
+  background: #fff;
+  color: #161616;
+  font-family: system-ui, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden; /* Hide scrollbars */
+}
+
+.subhdr { 
+  font-size: 1.1em; 
+  font-weight:600; 
+  margin-bottom:0.4em; 
+}
+
+.chat-container {
+  width: 90%;
+  max-width: 800px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  /*border: 1.5px solid #e2e2e2;*/
+  background: #fff;
+  /*border-radius: 10px;*/
+  /*box-shadow: 0 6px 48px 0 rgba(80,80,80,0.06);*/
+  overflow: hidden;
+}
+
+.chat-header {
+  /*display: flex;*/
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  background: #f5f5f5;
+  border-bottom: 1.5px solid #e0e0e0;
+  padding: 0.75em 1em 0.75em 1.3em;
+  font-size: 1.08em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #161616;
+}
+
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 1em;
+  user-select: none;
+  color: #2a2a2a;
+}
+
+.mode-toggle input[type="checkbox"] {
+  accent-color: #3187ff;
+  transform: scale(1.13);
+  margin: 0 0.22em 0 0;
+}
+
+.chat-history {
+  flex-grow: 1;
+  padding: 1.2em 1.4em;
+  /*overflow-y: auto;*/
+  overflow: hidden;
+  background: #fff;
+  white-space: normal;
+  line-height: 1.6;
+  font-size: 1.02em;
+  color: #161616;
+  border: none;
+}
+
+.chat-control {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.5em 1em;
+  /*border-top: 1.5px solid #e0e0e0;*/
+  background: #fafaff;
+}
+
+#next-turn {
+  background: #f3f3f7;
+  color: #111;
+  border: 1.2px solid #d7d7e0;
+  font-size: 1.4em;
+  padding: 0.32em 0.68em;
+  cursor: pointer;
+  border-radius: 100px;
+  line-height: 1;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  font-weight: 600;
+  box-shadow: 0 1px 6px 0 rgba(60,60,60,0.06);
+}
+
+#next-turn:hover:not(:disabled) {
+  background: #e5eaff;
+  color: #1953c6;
+  border-color: #c2cdfc;
+}
+
+#next-turn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.turn-block {
+  background: #fff;
+  border-radius: 1.2em;
+  margin-bottom: 1.2em;
+  /*box-shadow: 0 0.7px 0 #f2f2f2;*/
+  padding-bottom: 5em;
+}
+
+table.look {
+  border-collapse: collapse;
+  border: 1px solid #000;
+  margin-top: 0.4em;
+}
+
+table.look td {
+  border: 1px solid #000;
+  padding: 2px 6px;
+}
+
+ul {
+  padding-left: 1.5em;
+  margin-bottom: 1.2em;
+}
+
+li {
+  margin-bottom: 0.34em;
+}

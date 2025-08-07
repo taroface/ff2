@@ -513,63 +513,63 @@ const ACTION = Object.freeze({
   HELP:      'help',         // ← keep but not wired for now
 });
 
-// Free-form verbs → canonical ACTION key
+/* =================================================================== *
+ *  PLAYER → ACTION   (100 % synced with ff2_player_actions.md)        *
+ * =================================================================== */
 const PLAYER_VERB_MAP = {
-  /* ── Wait / idle ── */
+  /* ––––– Waiting ––––– */
   wait: ACTION.WAIT, think: ACTION.WAIT, consider: ACTION.WAIT, meditate: ACTION.WAIT,
   nap: ACTION.WAIT, sleep: ACTION.WAIT, hide: ACTION.WAIT, pass: ACTION.WAIT,
-  pause: ACTION.WAIT, pray: ACTION.WAIT,                              // :contentReference[oaicite:11]{index=11}
+  pause: ACTION.WAIT, pray: ACTION.WAIT,
 
-  /* ── Observation & inventory ── */
-  look: ACTION.LOOK, 'look around': ACTION.LOOK,                      // :contentReference[oaicite:12]{index=12}
+  /* ––––– Out-of-world meta ––––– */
+  look: ACTION.LOOK, 'look around': ACTION.LOOK,
   inventory: ACTION.INVENTORY, 'my things': ACTION.INVENTORY,
   'my property': ACTION.INVENTORY, 'what do i own': ACTION.INVENTORY,
 
-  /* ── Acquire / take ── */
+  /* ––––– Take / Drop ––––– */
   take: ACTION.TAKE, get: ACTION.TAKE, own: ACTION.TAKE, steal: ACTION.TAKE,
-  confiscate: ACTION.TAKE, loot: ACTION.TAKE, claim: ACTION.TAKE,
-  appropriate: ACTION.TAKE, seize: ACTION.TAKE, gain: ACTION.TAKE, store: ACTION.TAKE,
-  grab: ACTION.TAKE, capture: ACTION.TAKE, catch: ACTION.TAKE, procure: ACTION.TAKE,
-  liberate: ACTION.TAKE, grasp: ACTION.TAKE, fetch: ACTION.TAKE,
-  possess: ACTION.TAKE, equip: ACTION.TAKE,                           // :contentReference[oaicite:13]{index=13}
+  confiscate: ACTION.TAKE, loot: ACTION.TAKE, claim: ACTION.TAKE, appropriate: ACTION.TAKE,
+  seize: ACTION.TAKE, gain: ACTION.TAKE, store: ACTION.TAKE, grab: ACTION.TAKE,
+  capture: ACTION.TAKE, catch: ACTION.TAKE, procure: ACTION.TAKE, liberate: ACTION.TAKE,
+  grasp: ACTION.TAKE, fetch: ACTION.TAKE, possess: ACTION.TAKE, equip: ACTION.TAKE,
 
-  /* ── Drop / relinquish ── */
-  drop: ACTION.DROP, deduct: ACTION.DROP, lose: ACTION.DROP,
-  remove: ACTION.DROP, renounce: ACTION.DROP, detach: ACTION.DROP,    // :contentReference[oaicite:14]{index=14}
+  drop: ACTION.DROP, deduct: ACTION.DROP, lose: ACTION.DROP, remove: ACTION.DROP,
+  renounce: ACTION.DROP, detach: ACTION.DROP,
 
-  /* ── Make peace ── */
-  apologize: ACTION.APOLOGIZE, forgive: ACTION.APOLOGIZE,             // :contentReference[oaicite:15]{index=15}
+  /* ––––– Apologising ––––– */
+  'apologize to': ACTION.APOLOGIZE, forgive: ACTION.APOLOGIZE,
+  'make peace with': ACTION.APOLOGIZE,
 
-  /* ── Harass (non-lethal) ── */
-  yell: ACTION.HARASS, shout: ACTION.HARASS, scream: ACTION.HARASS,
-  threaten: ACTION.HARASS, warn: ACTION.HARASS, insult: ACTION.HARASS,
-  criticize: ACTION.HARASS, scold: ACTION.HARASS, confront: ACTION.HARASS,
-  accuse: ACTION.HARASS, protest: ACTION.HARASS, provoke: ACTION.HARASS,
-  argue: ACTION.HARASS, disrespect: ACTION.HARASS, mock: ACTION.HARASS, // :contentReference[oaicite:16]{index=16}
+  /* ––––– Harassing ––––– */
+  'yell at': ACTION.HARASS, 'shout at': ACTION.HARASS, 'scream at': ACTION.HARASS,
+  threaten: ACTION.HARASS, warn: ACTION.HARASS, insult: ACTION.HARASS, criticize: ACTION.HARASS,
+  scold: ACTION.HARASS, confront: ACTION.HARASS, accuse: ACTION.HARASS, protest: ACTION.HARASS,
+  provoke: ACTION.HARASS, 'argue with': ACTION.HARASS, disrespect: ACTION.HARASS, mock: ACTION.HARASS,
 
-  /* ── Assault (unarmed) ── */
+  /* ––––– Assault (bare hands) ––––– */
   attack: ACTION.ASSAULT, push: ACTION.ASSAULT, wrestle: ACTION.ASSAULT,
   grapple: ACTION.ASSAULT, tackle: ACTION.ASSAULT, shove: ACTION.ASSAULT,
   punch: ACTION.ASSAULT, kick: ACTION.ASSAULT, slap: ACTION.ASSAULT,
-  strangle: ACTION.ASSAULT, choke: ACTION.ASSAULT, slam: ACTION.ASSAULT, // :contentReference[oaicite:17]{index=17}
+  strangle: ACTION.ASSAULT, choke: ACTION.ASSAULT, slam: ACTION.ASSAULT,
 
-  /* ── Beat / weapon attack ── */
-  beat: ACTION.BEAT, battle: ACTION.BEAT, break: ACTION.BEAT, smash: ACTION.BEAT,
-  hit: ACTION.BEAT, fight: ACTION.BEAT, destroy: ACTION.BEAT, kill: ACTION.BEAT,
-  bash: ACTION.BEAT, slay: ACTION.BEAT, hurt: ACTION.BEAT, crush: ACTION.BEAT,
-  punish: ACTION.BEAT, strike: ACTION.BEAT,                            // :contentReference[oaicite:18]{index=18}
+  /* ––––– Beat with weapon ––––– */
+  beat: ACTION.BEAT, 'beat with': ACTION.BEAT, battle: ACTION.BEAT, break: ACTION.BEAT,
+  smash: ACTION.BEAT, hit: ACTION.BEAT, fight: ACTION.BEAT, destroy: ACTION.BEAT,
+  kill: ACTION.BEAT, bash: ACTION.BEAT, slay: ACTION.BEAT, hurt: ACTION.BEAT,
+  crush: ACTION.BEAT, punish: ACTION.BEAT, strike: ACTION.BEAT,
 
-  /* ── Bind / restrain ── */
-  bind: ACTION.BIND, tie: ACTION.BIND, incapacitate: ACTION.BIND,
-  subdue: ACTION.BIND, muzzle: ACTION.BIND, arrest: ACTION.BIND,
-  secure: ACTION.BIND, stop: ACTION.BIND, silence: ACTION.BIND,        // :contentReference[oaicite:19]{index=19}
+  /* ––––– Bind with object ––––– */
+  'bind with': ACTION.BIND, incapacitate: ACTION.BIND, subdue: ACTION.BIND,
+  muzzle: ACTION.BIND, arrest: ACTION.BIND, secure: ACTION.BIND, stop: ACTION.BIND,
+  silence: ACTION.BIND,
 
-  /* ── Throw / projectile ── */
-  throw: ACTION.TOSS, pitch: ACTION.TOSS, hurl: ACTION.TOSS,
-  aim: ACTION.TOSS, fling: ACTION.TOSS, yeet: ACTION.TOSS,             // :contentReference[oaicite:20]{index=20}
+  /* ––––– Throw / Toss ––––– */
+  'toss at': ACTION.TOSS, throw: ACTION.TOSS, pitch: ACTION.TOSS, hurl: ACTION.TOSS,
+  aim: ACTION.TOSS, fling: ACTION.TOSS, yeet: ACTION.TOSS,
 
-  /* ── Use (catch-all) ── */
-  use: ACTION.USE                                                     // :contentReference[oaicite:21]{index=21}
+  /* ––––– Use ––––– */
+  use: ACTION.USE
 };
 
 // Relation helpers ------------------------------------------------------
@@ -768,7 +768,7 @@ function pushRelationChange(bullets, src, dst, status){
 /* Push an NPC-death bullet using the “was killed” row ---------------*/
 function pushDeathLine(bullets, npc){
   const verb = pick( getActionVerbs('was killed') );   // returns “dead”
-  bullets.push(`💀 ${fmtName(npc.name)} ${verb}.`);
+  bullets.push(`💀 ${fmtName(npc.name)} is ${verb}.`);
 }
 
 function setAggressor(target, name) {

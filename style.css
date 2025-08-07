@@ -105,6 +105,12 @@ body {
   cursor: not-allowed;
 }
 
+/*/* --- red highlight while the player is typing --- */
+#next-turn.typing{
+  background:#e53935;   /* tomato-red */
+  color:#fff;
+}*/
+
 .turn-block {
   background: #fff;
   border-radius: 1.2em;

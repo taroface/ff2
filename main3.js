@@ -1326,198 +1326,167 @@ function nextTurn(playerCmd, onFinish) {
     const { type, target, object } = decideNpcAction(npc);
 
     switch (type) {
-
-      /* ───────── idle ─────────────────────────────────────────────── */
+      /* ───────────── idle ───────────────────────────────────────────── */
       case 'idle': {
         const verb = pick(getActionVerbs('idle'));
         bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb}.`);
         break;
       }
 
-      /* ───────── harass (sus escalator) ───────────────────────────── */
+      /* ───────────── harass (make sus) ───────────────────────────────── */
       case 'harass': {
-        const verb = pick(getActionVerbs('harass (make sus)'));
+        const verb = pick(getActionVerbs('becoming sus'));
         bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} ${fmtTarget(target)}.`);
-        const newRel = escalate(npc.name, target.name, 'sus');
-        pushRelationChange(bullets, npc.name, target.name, newRel);
-        npc.lastPartner = target.name;
+        escalate(npc.name, target.name, 'sus');
         setAggressor(target, npc.name);
         break;
       }
 
-      /* ───────── steal / take ─────────────────────────────────────── */
+      /* ───────────── steal / take ─────────────────────────────────────── */
       case 'steal': {
-        /* 1️⃣ prefer stealing from the target’s pockets */
-        if (target && target.inventory?.length) {
+        // ❶ Try stealing from target’s inventory
+        if (target && target.inventory && target.inventory.length) {
           const objName = pick(target.inventory);
-          const objDef  = OBJECTS_TABLE.find(o => o.name === objName) || { emoji: '' };
+          const objDef  = OBJECTS_TABLE.find(o => o.name === objName) || {};
           const success = Math.random() < 0.7;
-
           if (success) {
             target.inventory = target.inventory.filter(n => n !== objName);
             npc.inventory.push(objName);
             const verb = pick(getActionVerbs('steal'));
-            bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} ` +
-                         `the ${objDef.emoji} <b>${objName}</b> from ${fmtTarget(target)}.`);
+            bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} the ${objDef.emoji} <b>${objName}</b> from the ${fmtTarget(target)}.`);
             escalate(npc.name, target.name, 'hostile');
             setAggressor(target, npc.name);
           } else {
-            bullets.push(`${npc.emoji} the <b>${npc.name}</b> tries to steal from ` +
-                         `${fmtTarget(target)} but fails.`);
-            const newRel = escalate(npc.name, target.name, 'sus');
-            pushRelationChange(bullets, npc.name, target.name, newRel);
+            bullets.push(`${npc.emoji} the <b>${npc.name}</b> tries to steal from the ${fmtTarget(target)} but fails.`);
+            escalate(npc.name, target.name, 'sus');
           }
-          break;
-        }
-
-        /* 2️⃣ otherwise swipe a loose object */
-        const loose = world.objects.find(o => o.inWorld && !o.heldBy);
-        if (loose) {
-          const verb = pick(getActionVerbs('steal'));
-          bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} ` +
-                       `the ${loose.emoji} <b>${loose.name}</b>.`);
-          npc.inventory.push(loose.name);
-          loose.inWorld = false;
-          loose.heldBy  = npc.name;
         } else {
-          bullets.push(`${npc.emoji} the <b>${npc.name}</b> feels lacking.`);
+          // ❷ Otherwise grab a loose object
+          const loose = world.objects.find(o => o.inWorld && !o.heldBy);
+          if (loose) {
+            const verb = pick(getActionVerbs('steal'));
+            bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} the ${loose.emoji} <b>${loose.name}</b>.`);
+            npc.inventory.push(loose.name);
+            loose.inWorld = false;
+            loose.heldBy  = npc.name;
+          } else {
+            bullets.push(`${npc.emoji} the <b>${npc.name}</b> feels lacking.`);
+          }
         }
         break;
       }
 
-      /* ───────── assault (bare-handed) ────────────────────────────── */
+      /* ───────────── assault (bare-handed) ──────────────────────────── */
       case 'assault': {
         const verb = pick(getActionVerbs('assault (no weapon)'));
         bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} ${fmtTarget(target)}.`);
         escalate(npc.name, target.name, 'hostile');
-        npc.lastPartner = target.name;
         setAggressor(target, npc.name);
         world.violence++;
         break;
       }
 
-      /* ───────── bind (rope, zip tie, …) ───────────────────────────── */
+      /* ───────────── bind (rope, zip tie, etc.) ───────────────────────── */
       case 'bind': {
         const objDef = OBJECTS_TABLE.find(o => o.name === object && o.type === 'bind');
-        if (!objDef) break;
+        if (!objDef) { 
+          // fallback to miss
+          const miss = pick(getActionVerbs('missed (by bind)'));
+          bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${miss} ${fmtTarget(target)}.`);
+        } else {
+          const verb   = pick(getActionVerbs('bind'));
+          const success = Math.random() < 0.8;
+          if (success) {
+            bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} ${fmtTarget(target)} with the ${objDef.emoji} <b>${objDef.name}</b>.`);
+            target.bound     = true;
+            target.boundItem = objDef;
+            npc.inventory    = npc.inventory.filter(n => n !== objDef.name);
+            escalate(npc.name, target.name, 'hostile');
+            setAggressor(target, npc.name);
+            world.violence++;
+          } else {
+            const miss = pick(getActionVerbs('missed (by bind)'));
+            bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${miss} ${fmtTarget(target)}.`);
+            escalate(npc.name, target.name, 'sus');
+          }
+        }
+        break;
+      }
 
-        const verbBind = pick(getActionVerbs('bind'));                    // “ambushes / corners …”
-        const verbMiss = pick(getActionVerbs('missed (by bind)'));        // “evades / dodges …”
-        const success  = Math.random() < 0.80;
-
-        let line = `${npc.emoji} <b>${npc.name}</b> `;
-
-        if (success){
-          line += `${verbBind} ${fmtTarget(target,'you-hit')} with the ${objDef.emoji} <b>${objDef.name}</b>.`;
-          target.bound     = true;
-          target.boundItem = objDef;
-          npc.inventory    = npc.inventory.filter(n => n !== objDef.name);
+      /* ───────────── beat (melee weapon) ──────────────────────────────── */
+      case 'beat': {
+        const objDef = OBJECTS_TABLE.find(o => o.name === object && o.type !== 'bind');
+        if (objDef) {
+          const verbHit  = pick(getActionVerbs('hit (with attack)'));
+          let   line     = `${npc.emoji} the <b>${npc.name}</b> ${verbHit} ${fmtTarget(target)} with the ${objDef.emoji} <b>${objDef.name}</b>.`;
+          // 25% lethal
+          if (target.name !== PLAYER_ID && Math.random() < 0.25) {
+            const verbKill = pick(getActionVerbs('killed (with attack)'));
+            line += ` ${objDef.emoji} <b>${objDef.name}</b> ${verbKill} ${fmtTarget(target)}.`;
+            pushDeathLine(bullets, target);
+          }
+          bullets.push(line);
           escalate(npc.name, target.name, 'hostile');
           setAggressor(target, npc.name);
           world.violence++;
         } else {
-          line += `${verbMiss} ${fmtTarget(target)}.`;
-          escalate(npc.name, target.name, 'sus');
+          // no weapon fallback to assault
+          const verb = pick(getActionVerbs('assault (no weapon)'));
+          bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} ${fmtTarget(target)}.`);
+          escalate(npc.name, target.name, 'hostile');
+          setAggressor(target, npc.name);
+          world.violence++;
         }
-
-        bullets.push(line);
         break;
       }
 
-      /* ────────── beat (melee weapon) ───────────────────────────── */
-      case 'beat': {
-        const objDef = OBJECTS_TABLE.find(o => o.name === object && o.type !== 'bind');
-        if (!objDef) break;
-
-        // lookup verbs
-        const swingV = pick(getActionVerbs('beat (with weapon, medium)'));  // hits/crushes…
-        const hitV   = pick(getActionVerbs('hit (with attack)'));          // knocks/jolts…
-        const killV  = pick(getActionVerbs('killed (with attack)'));       // mutilates/maims…
-
-        // build one combined line
-        let line = `${npc.emoji} <b>${npc.name}</b> ${swingV} ` +
-                   `${fmtTarget(target)} with the ${objDef.emoji} <b>${objDef.name}</b>.`;
-
-        // object-subject follow-up (skip if target is player)
-        if (target.name !== PLAYER_ID) {
-          line += ` ${objDef.emoji} <b>${objDef.name}</b> ${hitV} ${fmtTarget(target)}.`;
-
-          // possible kill
-          if (Math.random() < 0.25) {
-            line += ` ${objDef.emoji} <b>${objDef.name}</b> ${killV} ${fmtTarget(target)}. 💀`;
-            target.alive = false;
-            pushDeathLine(bullets, target);
-            // free bound item if any
-            if (target.boundItem) {
-              world.objects.push({ ...target.boundItem, inWorld: true, heldBy: null });
-              target.boundItem = null;
-            }
-            world.deaths++;
-            world.objects.push({ name: 'body', emoji: '💀', inWorld: true, heldBy: null });
-          }
-        }
-
-        bullets.push(line);
-        escalate(npc.name, target.name, 'hostile');
-        setAggressor(target, npc.name);
-        world.violence++;
-        break;
-      }
-
-      /* ────────── throw / projectile ───────────────────────────── */
+      /* ───────────── throw / projectile────────────────────────────────── */
       case 'throw': {
         const objDef = OBJECTS_TABLE.find(o => o.name === object && o.type === 'projectile');
-        if (!objDef) break;
-
-        // lookup verbs
-        const throwV = pick(getActionVerbs('throw'));                // throws/tosses…
-        const hitV   = pick(getActionVerbs('hit (with attack)'));   // knocks/jolts…
-        const killV  = pick(getActionVerbs('killed (with attack)'));
-        const missV  = pick(getActionVerbs('misses'));               // missed…
-
-        // start the single bullet
-        let line = `${npc.emoji} <b>${npc.name}</b> ${throwV} ` +
-                   `the ${objDef.emoji} <b>${objDef.name}</b> at ${fmtTarget(target)}.`;
-
-        const hit = Math.random() < 0.75;
-        if (hit) {
-          line += ` ${objDef.emoji} <b>${objDef.name}</b> ${hitV} ${fmtTarget(target)}.`;
-
-          if (target.name !== PLAYER_ID && Math.random() < 0.30) {
-            line += ` ${objDef.emoji} <b>${objDef.name}</b> ${killV} ${fmtTarget(target)}. 💀`;
-            target.alive = false;
-            pushDeathLine(bullets, target);
-            if (target.boundItem) {
-              world.objects.push({ ...target.boundItem, inWorld: true, heldBy: null });
-              target.boundItem = null;
+        if (objDef) {
+          const verbThrow = pick(getActionVerbs('throw'));
+          let line = `${npc.emoji} the <b>${npc.name}</b> ${verbThrow} the ${objDef.emoji} <b>${objDef.name}</b> at ${fmtTarget(target)}.`;
+          const hit = Math.random() < 0.75;
+          if (hit) {
+            const verbHit = pick(getActionVerbs('hit (with attack)'));
+            line += ` ${objDef.emoji} <b>${objDef.name}</b> ${verbHit} ${fmtTarget(target)}.`;
+            if (target.name !== PLAYER_ID && Math.random() < 0.30) {
+              const verbKill = pick(getActionVerbs('killed (with attack)'));
+              line += ` ${objDef.emoji} <b>${objDef.name}</b> ${verbKill} ${fmtTarget(target)}.`;
+              pushDeathLine(bullets, target);
             }
-            world.deaths++;
-            world.objects.push({ name: 'body', emoji: '💀', inWorld: true, heldBy: null });
+          } else {
+            const miss = pick(getActionVerbs('misses'));
+            line += ` ${objDef.emoji} <b>${objDef.name}</b> ${miss}.`;
           }
-          escalate(npc.name, target.name, 'hostile');
-          world.violence++;
+          bullets.push(line);
+          // object falls
+          npc.inventory = npc.inventory.filter(n => n !== objDef.name);
+          world.objects.push({ name: objDef.name, emoji: objDef.emoji, inWorld: true, heldBy: null });
+          escalate(npc.name, target.name, hit ? 'hostile' : 'sus');
+          world.violence += hit ? 1 : 0;
         } else {
-          line += ` ${objDef.emoji} <b>${objDef.name}</b> ${missV}.`;
+          // fallback if no projectile
+          const verb = pick(getActionVerbs('misses'));
+          bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} ${fmtTarget(target)}.`);
           escalate(npc.name, target.name, 'sus');
         }
-
-        bullets.push(line);
-
-        // drop projectile into world
-        npc.inventory = npc.inventory.filter(n => n !== objDef.name);
-        world.objects.push({ name: objDef.name, emoji: objDef.emoji, inWorld: true, heldBy: null });
-        setAggressor(target, npc.name);
         break;
       }
 
-      /* ───────── help / friendly assist ───────────────────────────── */
+      /* ───────────── help / friendly assist ──────────────────────────── */
       case 'help': {
-        const verb = pick(getActionVerbs('help (friendly, no target)'));
+        const verb = pick(getActionVerbs('becoming friendly'));
         bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb} ${fmtTarget(target)}.`);
-        npc.lastPartner = target.name;
         break;
       }
-    } // end switch
+
+      /* ───────────── catch-all defaults to idle so nobody is silent —─── */
+      default: {
+        const verb = pick(getActionVerbs('idle'));
+        bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb}.`);
+      }
+    }
   }   // end for-loop over npcOrder
 
   // === MOOD TEXT ===

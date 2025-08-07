@@ -765,10 +765,10 @@ function pushRelationChange(bullets, src, dst, status){
   bullets.push(`${fmtName(dst)} ${verb} ${fmtName(src)}.`);
 }
 
-/* Push an NPC-death bullet using the “was killed” row ---------------*/
-function pushDeathLine(bullets, npc){
-  const verb = pick( getActionVerbs('was killed') );   // returns “dead”
-  bullets.push(`💀 ${fmtName(npc.name)} is ${verb}.`);
+/* Push the single, table-driven death bullet -------------------- */
+function pushDeathLine(arr, victim){
+  const verb = pick(getActionVerbs('was killed'));   // returns 'dead'
+  arr.push(`💀 the ${fmtName(victim.name)} is ${verb}.`);
 }
 
 function setAggressor(target, name) {
@@ -1355,25 +1355,28 @@ function nextTurn(playerCmd, onFinish) {
         break;
       }
 
-      /* ───────── beat (melee weapon) ──────────────────────────────── */
+      /* ───────────── beat (melee weapon) ─────────────────────────────── */
       case 'beat': {
         const objDef = OBJECTS_TABLE.find(o => o.name === object && o.type !== 'bind');
-        if (!objDef) break;
+        if (!objDef) break;                       // shouldn’t happen
 
-        const verbHit   = pick(getActionVerbs('beat (with weapon, medium)'));  // “hits / crushes …”
-        const verbKill  = pick(getActionVerbs('killed (with attack)'));        // “dead”
-        let   line      = `${npc.emoji} <b>${npc.name}</b> ${verbHit} ` +
-                          `${fmtTarget(target)} with the ${objDef.emoji} <b>${objDef.name}</b>.`;
+        /* primary “hit” bullet */
+        const verbHit = pick(getActionVerbs('beat (with weapon, medium)'));   // hits / crushes …
+        bullets.push(
+          `${npc.emoji} <b>${npc.name}</b> ${verbHit} ` +
+          `${fmtTarget(target)} with the ${objDef.emoji} <b>${objDef.name}</b>.`
+        );
 
         escalate(npc.name, target.name, 'hostile');
         setAggressor(target, npc.name);
         world.violence++;
 
-        /* lethality (never kills the player) */
-        if (target.name !== PLAYER_ID && Math.random() < 0.25){
-          line += ` ${objDef.emoji} <b>${objDef.name}</b> ${verbKill} ${fmtTarget(target)}. 💀`;
+        /* — 25 % lethality (never vs. the player) ----------------------- */
+        if (target.name !== PLAYER_ID && Math.random() < 0.25) {
           target.alive = false;
-          pushDeathLine(bullets, target);                 // table-driven wording
+          pushDeathLine(bullets, target);           // 💀 NPC is dead.
+
+          /* if the victim was bound, drop the bind-item */
           if (target.boundItem){
             world.objects.push({ ...target.boundItem, inWorld:true, heldBy:null });
             target.boundItem = null;
@@ -1381,36 +1384,32 @@ function nextTurn(playerCmd, onFinish) {
           world.deaths++;
           world.objects.push({ name:'body', emoji:'💀', inWorld:true, heldBy:null });
         }
-
-        bullets.push(line);
         break;
       }
 
-      /* ───────────── throw / projectile (one-bullet version) ────────── */
+      /* ───────────── throw / projectile ─────────────────────────────── */
       case 'throw': {
         const objDef = OBJECTS_TABLE.find(o => o.name === object && o.type === 'projectile');
-        if (!objDef) break;                       // safety
+        if (!objDef) break;
 
-        /* base clause: who throws what at whom ------------------------- */
-        const verbThrow = pick(getActionVerbs('throw'));           // “throws / tosses …”
-        let line = `${npc.emoji} the <b>${npc.name}</b> ${verbThrow} ` +
-                   `the ${objDef.emoji} <b>${objDef.name}</b> at ${fmtTarget(target)}.`;
+        /* base clause: who throws what at whom */
+        const verbThrow = pick(getActionVerbs('throw'));                // throws / lobs …
+        bullets.push(
+          `${npc.emoji} the <b>${npc.name}</b> ${verbThrow} ` +
+          `the ${objDef.emoji} <b>${objDef.name}</b> at ${fmtTarget(target)}.`
+        );
 
         const hit = Math.random() < 0.75;
 
         if (hit) {
-          /* add the hit clause ----------------------------------------- */
-          const verbHit  = pick(getActionVerbs('hit (with attack)'));   // “knocks / jolts …”
-          line += ` ${objDef.emoji} <b>${objDef.name}</b> ${verbHit} ${fmtTarget(target)}.`;
+          const verbHit = pick(getActionVerbs('hit (with attack)'));     // knocks / jolts …
+          bullets.push(`${objDef.emoji} <b>${objDef.name}</b> ${verbHit} ${fmtTarget(target)}.`);
 
-          /* 30 % lethality (never kills the player) -------------------- */
-          if (target.name !== PLAYER_ID && Math.random() < 0.30){
-            const verbKill = pick(getActionVerbs('killed (with attack)'));// “dead”
-            line += ` ${objDef.emoji} <b>${objDef.name}</b> ${verbKill} ${fmtTarget(target)}. 💀`;
+          /* 30 % lethality (never vs. the player) */
+          if (target.name !== PLAYER_ID && Math.random() < 0.30) {
             target.alive = false;
-            pushDeathLine(bullets, target);
+            pushDeathLine(bullets, target);           // 💀 NPC is dead.
 
-            /* drop any bind-item the victim was wearing */
             if (target.boundItem){
               world.objects.push({ ...target.boundItem, inWorld:true, heldBy:null });
               target.boundItem = null;
@@ -1418,19 +1417,14 @@ function nextTurn(playerCmd, onFinish) {
             world.deaths++;
             world.objects.push({ name:'body', emoji:'💀', inWorld:true, heldBy:null });
           }
-
         } else {
-          /* miss clause ------------------------------------------------ */
-          const missVerb = pick(getActionVerbs('misses'));              // “missed”
-          line += ` ${objDef.emoji} <b>${objDef.name}</b> ${missVerb}.`;
+          const missVerb = pick(getActionVerbs('misses'));               // missed
+          bullets.push(`${objDef.emoji} <b>${objDef.name}</b> ${missVerb}.`);
         }
 
-        /* push the single combined bullet ----------------------------- */
-        bullets.push(line);
-
-        /* projectile lands on ground ---------------------------------- */
+        /* projectile lands on the ground */
         npc.inventory = npc.inventory.filter(n => n !== objDef.name);
-        world.objects.push({ name: objDef.name, emoji: objDef.emoji, inWorld:true, heldBy:null });
+        world.objects.push({ name:objDef.name, emoji:objDef.emoji, inWorld:true, heldBy:null });
 
         escalate(npc.name, target.name, hit ? 'hostile' : 'sus');
         world.violence += hit ? 1 : 0;

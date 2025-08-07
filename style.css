@@ -76,7 +76,7 @@ body {
   justify-content: flex-end;
   padding: 0.5em 1em;
   /*border-top: 1.5px solid #e0e0e0;*/
-  background: #fafaff;
+  /*background: #fafaff;*/
 }
 
 #next-turn {
@@ -91,6 +91,7 @@ body {
   transition: background 0.2s, color 0.2s, opacity 0.2s;
   font-weight: 600;
   box-shadow: 0 1px 6px 0 rgba(60,60,60,0.06);
+  pointer-events:none;   /* belt-and-suspenders: blocks clicks if it’s ever shown */
 }
 
 #next-turn:hover:not(:disabled) {
@@ -110,6 +111,15 @@ body {
   margin-bottom: 1.2em;
   /*box-shadow: 0 0.7px 0 #f2f2f2;*/
   padding-bottom: 5em;
+}
+
+.auto-player-input{
+  flex:1;                 /* fills row until the ➤ button */
+  padding:6px 8px;
+  font-size:14px;
+  border:1px solid #ccc;
+  border-radius:6px;
+  margin-right:6px;
 }
 
 table.look {

@@ -753,6 +753,7 @@ function fmtName(id){
 
 /* Push a relation-change bullet using the lookup table --------------*/
 function pushRelationChange(bullets, src, dst, status){
+  if (src === PLAYER_ID) return;
   let row = null;
   if (status === RELATION.SUSPICIOUS) row = 'becoming sus';
   else if (status === RELATION.FRIENDLY) row = 'becoming friendly';
@@ -1213,21 +1214,29 @@ function nextTurn(playerCmd, onFinish) {
   const playerLine = applyPlayerAction(parsePlayerInput(playerCmd || 'wait'));   // <-- rename
   // (don’t push it into bullets!)
 
-  // === SPAWN LOGIC ===
-  if (turn === 1) {
-    for (let i = 0; i < 3; ++i) {
+  /* === SPAWN LOGIC =================================================== */
+  if (turn === 1){                       // first-turn crowd seeding
+    for (let i = 0; i < 3; i++){
       const npc = spawnNPC();
-      if (npc) bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${pick(getActionVerbs("spawn"))}.`);
+      if (npc){
+        bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${pick(getActionVerbs('spawn'))}.`);
+      }
     }
   }
-  if (turn % SPAWN_INTERVAL === 0) {
-    if (world.npcs.length < MAX_NPCS) {
+
+  if (turn % SPAWN_INTERVAL === 0){
+
+    /* — NPC spawn (narrated) — */
+    if (world.npcs.length < MAX_NPCS){
       const npc = spawnNPC();
-      if (npc) bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${pick(getActionVerbs("spawn"))}.`);
+      if (npc){
+        bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${pick(getActionVerbs('spawn'))}.`);
+      }
     }
-    if (world.objects.filter(o => o.inWorld && !o.heldBy).length < MAX_OBJECTS) {
-      const obj = spawnObject();
-      if (obj) bullets.push(`${obj.emoji} <b>${obj.name}</b> ${pick(getActionVerbs("spawn"))}.`);
+
+    /* — object spawn (silent) — */
+    if (world.objects.filter(o => o.inWorld && !o.heldBy).length < MAX_OBJECTS){
+      spawnObject();      // no bullet—just exists in the world now
     }
   }
 
@@ -1529,6 +1538,7 @@ function pickMoodText() {
 function renderTurn(turnNum, playerLine, bullets, moodText, promptText, onFinish) {
   const chatHistory = document.getElementById('chat-history');
   const nextTurnBtn = document.getElementById('next-turn');
+  nextTurnBtn.textContent = '\u2B06';
   nextTurnBtn.disabled = true;
   if (typeof running !== "undefined") running = true;
 
@@ -1711,7 +1721,7 @@ function renderTurn(turnNum, playerLine, bullets, moodText, promptText, onFinish
 // UI mode/runner for auto/manual
 let autoMode = true;
 let pendingCommand = 'wait';   // default when player hits enter with empty box
-let steps = 1000;
+let steps = Infinity;
 let t = 0;
 let running = false;
 

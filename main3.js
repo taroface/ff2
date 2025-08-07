@@ -1892,7 +1892,7 @@ nextTurnBtn.addEventListener('click', () => {
     const newInput = document.createElement('input');
     newInput.id   = 'player-cmd';
     newInput.type = 'text';
-    newInput.placeholder = 'typing…';
+    newInput.placeholder = '';
     newInput.className   = 'auto-player-input';
 
     chatCtrl.insertBefore(newInput, nextBtn);

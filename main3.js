@@ -1154,66 +1154,85 @@ function spawnObject() {
 /* ===================================================================
  *  NPC AI — pick target + action  (prefers weapons if owned)
  * =================================================================== */
-function decideNpcAction(npc){
+function decideNpcAction(npc) {
+  // 1️⃣ Build list of other alive, unbound NPCs + one player stub
+  const livingNPCs = world.npcs.filter(n => n.name !== npc.name && n.alive && !n.bound);
+  const playerStub = { name: 'you', emoji: PLAYER_EMOJI, alive: true, bound: false };
+  const living = [...livingNPCs, playerStub];
 
-  /* 1️⃣  Assemble potential targets (NPCs + the player) ------------- */
-  const living = world.npcs.filter(n => n.name !== npc.name && n.alive && !n.bound);
-  living.push({ name:'you', emoji:PLAYER_EMOJI, alive:true, bound:false });   // player stub
+  // 2️⃣ Pick a “recent” target first: lastAggressor → lastPartner
+  let target = null;
+  if (npc.lastAggressor) {
+    target = living.find(n => n.name === npc.lastAggressor);
+  }
+  if (!target && npc.lastPartner) {
+    target = living.find(n => n.name === npc.lastPartner);
+  }
 
-  /* choose “best” target ------------------------------------------- */
-  const hostile    = living.filter(n => getRelation(npc.name,n.name) === RELATION.HOSTILE);
-  const suspicious = living.filter(n => getRelation(npc.name,n.name) === RELATION.SUSPICIOUS);
-  const friendly   = living.filter(n => getRelation(npc.name,n.name) === RELATION.FRIENDLY);
+  // 3️⃣ Otherwise weight by relation, then random
+  if (!target && living.length) {
+    const hostile    = living.filter(n => getRelation(npc.name, n.name) === RELATION.HOSTILE);
+    const suspicious = living.filter(n => getRelation(npc.name, n.name) === RELATION.SUSPICIOUS);
+    const friendly   = living.filter(n => getRelation(npc.name, n.name) === RELATION.FRIENDLY);
+    target = hostile[0] || suspicious[0] || friendly[0] || pick(living);
+  }
 
-  let target =   living.find(n => n.name === npc.lastAggressor)   // revenge
-              || living.find(n => n.name === npc.lastPartner)     // continue thread
-              || hostile[0] || suspicious[0] || friendly[0]
-              || (living.length ? pick(living) : null);
+  // 4️⃣ Classify inventory
+  const invDefs = (npc.inventory || [])
+    .map(name => OBJECTS_TABLE.find(o => o.name === name))
+    .filter(Boolean);
+  const projectile = invDefs.find(o => o.type === 'projectile');
+  const binder     = invDefs.find(o => o.type === 'bind');
+  const melee      = invDefs.find(o => !o.type || o.type === '');
 
-  /* 2️⃣  Classify inventory ---------------------------------------- */
-  const invDefs = (npc.inventory||[])
-        .map(n=>OBJECTS_TABLE.find(o=>o.name===n))
-        .filter(Boolean);
+  // helper to pick best violent action
+  function chooseWeapon() {
+    if (projectile && melee) {
+      return Math.random() < 0.5
+        ? { type: 'throw', object: projectile.name }
+        : { type: 'beat',  object: melee.name };
+    }
+    if (projectile) return { type: 'throw', object: projectile.name };
+    if (melee)      return { type: 'beat',  object: melee.name };
+    if (binder)     return { type: 'bind',  object: binder.name };
+    return { type: 'assault', object: null };
+  }
 
-  const projectile = invDefs.find(d=>d.type==='projectile');
-  const melee      = invDefs.find(d=>!d.type || d.type==='');           // blunt / sharp
-  const binder     = invDefs.find(d=>d.type==='bind');
+  // 5️⃣ If no valid target, just idle
+  if (!target) {
+    return { type: 'idle', target: null, object: null };
+  }
 
-  /* helper: pick best weapon/action -------------------------------- */
-  const bestWeapon = ()=>{
-    if (projectile && melee)        // randomise if both
-      return Math.random()<0.5 ? {type:'throw',object:projectile.name}
-                               : {type:'beat', object:melee.name};
-    if (projectile) return {type:'throw',  object:projectile.name};
-    if (melee)      return {type:'beat',   object:melee.name};
-    if (binder)     return {type:'bind',   object:binder.name};
-    return {type:'assault', object:null};          // fists
-  };
-
-  /* 3️⃣  Decide high-level action ---------------------------------- */
-  if (!target) return { type:'idle', target:null, object:null };
-
+  // 6️⃣ Decide based on current relation
   const rel = getRelation(npc.name, target.name);
 
   if (rel === RELATION.HOSTILE) {
-    return { ...bestWeapon(), target };
+    // almost always violent
+    return { ...chooseWeapon(), target };
+  }
 
-  } else if (rel === RELATION.SUSPICIOUS) {
-    return Math.random()<0.5
-         ? { ...bestWeapon(), target }
-         : { type:'harass',  target, object:null };
-
-  } else if (rel === RELATION.FRIENDLY) {
+  if (rel === RELATION.SUSPICIOUS) {
     const r = Math.random();
-    if (r<0.40)       return { type:'help',   target, object:null };
-    else if (r<0.80)  return { type:'idle',   target:null, object:null };
-    else              return { type:'steal',  target, object:null };
+    if (r < 0.4)   return { ...chooseWeapon(), target };
+    if (r < 0.7)   return { type: 'harass', target, object: null };
+    return { type: 'steal',   target, object: null };
+  }
 
-  } else { /* NEUTRAL */
+  if (rel === RELATION.FRIENDLY) {
     const r = Math.random();
-    if (r<0.50)       return { type:'harass', target, object:null };
-    else if (r<0.75)  return { type:'steal',  target, object:null };
-    else              return { ...bestWeapon(), target };
+    if (r < 0.3)   return { type: 'help',   target, object: null };
+    if (r < 0.6)   return { ...chooseWeapon(), target };
+    if (r < 0.8)   return { type: 'harass', target, object: null };
+    if (r < 0.9)   return { type: 'steal',  target, object: null };
+    return { type: 'idle',    target: null, object: null };
+  }
+
+  // RELATION.NEUTRAL
+  {
+    const r = Math.random();
+    if (r < 0.5)   return { type: 'harass', target, object: null };
+    if (r < 0.8)   return { type: 'steal',  target, object: null };
+    return { ...chooseWeapon(), target };
   }
 }
 

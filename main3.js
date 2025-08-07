@@ -1745,7 +1745,7 @@ function renderTurn(turnNum, playerLine, bullets, moodText, promptText, onFinish
         setTimeout(typeBullets, 90);
       });
     } else {
-      setTimeout(typeMood, 150);
+      setTimeout(typeMood, 500);
     }
   }
 
@@ -1884,7 +1884,7 @@ nextTurnBtn.addEventListener('click', () => {
   const chatHist = document.getElementById('chat-history');
 
   const TYPE_DELAY  = 300;       // ms per char when typing
-  const TURN_DELAY  = 3000;     // ms to wait *after* a turn fully renders
+  const TURN_DELAY  = 5000;     // ms to wait *after* a turn fully renders
   let   turnCount   = 0;
   let   typing      = false;    // typing animation flag
 

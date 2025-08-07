@@ -1155,12 +1155,19 @@ function spawnObject() {
  *  NPC AI — pick target + action  (prefers weapons if owned)
  * =================================================================== */
 function decideNpcAction(npc) {
-  // 1️⃣ Build list of other alive, unbound NPCs + one player stub
-  const livingNPCs = world.npcs.filter(n => n.name !== npc.name && n.alive && !n.bound);
-  const playerStub = { name: 'you', emoji: PLAYER_EMOJI, alive: true, bound: false };
-  const living = [...livingNPCs, playerStub];
+  // 1. build list of alive, unbound NPCs + player stub
+  const living = world.npcs.filter(n => n.name !== npc.name && n.alive && !n.bound);
+  living.push({ name:'you', emoji: PLAYER_EMOJI, alive:true, bound:false });
 
-  // 2️⃣ Pick a “recent” target first: lastAggressor → lastPartner
+  // 2. clear out stale pointers
+  if (npc.lastAggressor && !living.some(n => n.name === npc.lastAggressor)) {
+    npc.lastAggressor = null;
+  }
+  if (npc.lastPartner && !living.some(n => n.name === npc.lastPartner)) {
+    npc.lastPartner = null;
+  }
+
+  // 3. pick “recent” target: revenge → continuing thread
   let target = null;
   if (npc.lastAggressor) {
     target = living.find(n => n.name === npc.lastAggressor);
@@ -1169,7 +1176,7 @@ function decideNpcAction(npc) {
     target = living.find(n => n.name === npc.lastPartner);
   }
 
-  // 3️⃣ Otherwise weight by relation, then random
+  // 4. else weight by relation
   if (!target && living.length) {
     const hostile    = living.filter(n => getRelation(npc.name, n.name) === RELATION.HOSTILE);
     const suspicious = living.filter(n => getRelation(npc.name, n.name) === RELATION.SUSPICIOUS);
@@ -1177,62 +1184,54 @@ function decideNpcAction(npc) {
     target = hostile[0] || suspicious[0] || friendly[0] || pick(living);
   }
 
-  // 4️⃣ Classify inventory
-  const invDefs = (npc.inventory || [])
-    .map(name => OBJECTS_TABLE.find(o => o.name === name))
-    .filter(Boolean);
-  const projectile = invDefs.find(o => o.type === 'projectile');
-  const binder     = invDefs.find(o => o.type === 'bind');
-  const melee      = invDefs.find(o => !o.type || o.type === '');
+  // 5. classify inventory
+  const invDefs   = (npc.inventory || []).map(n => OBJECTS_TABLE.find(o => o.name === n)).filter(Boolean);
+  const projectile= invDefs.find(o => o.type === 'projectile');
+  const binder    = invDefs.find(o => o.type === 'bind');
+  const melee     = invDefs.find(o => !o.type);
 
-  // helper to pick best violent action
   function chooseWeapon() {
-    if (projectile && melee) {
-      return Math.random() < 0.5
-        ? { type: 'throw', object: projectile.name }
-        : { type: 'beat',  object: melee.name };
-    }
-    if (projectile) return { type: 'throw', object: projectile.name };
-    if (melee)      return { type: 'beat',  object: melee.name };
-    if (binder)     return { type: 'bind',  object: binder.name };
-    return { type: 'assault', object: null };
+    if (projectile && melee) return Math.random()<0.5
+      ? { type:'throw', object:projectile.name }
+      : { type:'beat',  object:melee.name };
+    if (projectile)  return { type:'throw', object:projectile.name };
+    if (melee)       return { type:'beat',  object:melee.name };
+    if (binder)      return { type:'bind',  object:binder.name };
+    return { type:'assault', object:null };
   }
 
-  // 5️⃣ If no valid target, just idle
+  // 6. decide based on relation (including a neutral–idle branch)
   if (!target) {
-    return { type: 'idle', target: null, object: null };
+    return { type:'idle', target:null, object:null };
   }
 
-  // 6️⃣ Decide based on current relation
   const rel = getRelation(npc.name, target.name);
-
   if (rel === RELATION.HOSTILE) {
-    // almost always violent
     return { ...chooseWeapon(), target };
   }
 
-  if (rel === RELATION.SUSPICIOUS) {
+  if ( rel === RELATION.SUSPICIOUS ) {
     const r = Math.random();
-    if (r < 0.4)   return { ...chooseWeapon(), target };
-    if (r < 0.7)   return { type: 'harass', target, object: null };
-    return { type: 'steal',   target, object: null };
+    if (r < 0.45)      return { ...chooseWeapon(), target };
+    if (r < 0.75)      return { type:'harass', target, object:null };
+                       return { type:'steal',  target, object:null };
   }
 
-  if (rel === RELATION.FRIENDLY) {
+  if ( rel === RELATION.FRIENDLY ) {
     const r = Math.random();
-    if (r < 0.3)   return { type: 'help',   target, object: null };
-    if (r < 0.6)   return { ...chooseWeapon(), target };
-    if (r < 0.8)   return { type: 'harass', target, object: null };
-    if (r < 0.9)   return { type: 'steal',  target, object: null };
-    return { type: 'idle',    target: null, object: null };
+    if (r < 0.40)      return { type:'help',   target, object:null };
+    if (r < 0.80)      return { type:'idle',   target:null, object:null };
+    return              Math.random()<0.5
+                       ? { type:'steal', target, object:null }
+                       : { ...chooseWeapon(), target };
   }
 
-  // RELATION.NEUTRAL
+  // RELATION.NEUTRAL → 30% idle, otherwise provoke
   {
     const r = Math.random();
-    if (r < 0.5)   return { type: 'harass', target, object: null };
-    if (r < 0.8)   return { type: 'steal',  target, object: null };
-    return { ...chooseWeapon(), target };
+    if      (r < 0.30) return { type:'idle', target:null, object:null };
+    else if (r < 0.65) return { type:'harass', target, object:null };
+    else               return { type:'steal',  target, object:null };
   }
 }
 

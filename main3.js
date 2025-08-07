@@ -1155,28 +1155,23 @@ function spawnObject() {
  *  NPC AI — pick target + action  (prefers weapons if owned)
  * =================================================================== */
 function decideNpcAction(npc) {
-  // 1. build list of alive, unbound NPCs + player stub
+  // 1️⃣  Build list of living, unbound NPCs + player stub
   const living = world.npcs.filter(n => n.name !== npc.name && n.alive && !n.bound);
-  living.push({ name:'you', emoji: PLAYER_EMOJI, alive:true, bound:false });
+  living.push({ name: 'you', emoji: PLAYER_EMOJI, alive: true, bound: false });
 
-  // 2. clear out stale pointers
-  if (npc.lastAggressor && !living.some(n => n.name === npc.lastAggressor)) {
-    npc.lastAggressor = null;
-  }
-  if (npc.lastPartner && !living.some(n => n.name === npc.lastPartner)) {
-    npc.lastPartner = null;
-  }
+  // 2️⃣  Nuke stale pointers
+  if (npc.lastAggressor && !living.some(n => n.name === npc.lastAggressor)) npc.lastAggressor = null;
+  if (npc.lastPartner    && !living.some(n => n.name === npc.lastPartner))    npc.lastPartner    = null;
 
-  // 3. pick “recent” target: revenge → continuing thread
-  let target = null;
-  if (npc.lastAggressor) {
-    target = living.find(n => n.name === npc.lastAggressor);
-  }
+  // 3️⃣  Revenge → thread
+  let target = npc.lastAggressor
+    ? living.find(n => n.name === npc.lastAggressor)
+    : null;
   if (!target && npc.lastPartner) {
     target = living.find(n => n.name === npc.lastPartner);
   }
 
-  // 4. else weight by relation
+  // 4️⃣  Weighted by relation
   if (!target && living.length) {
     const hostile    = living.filter(n => getRelation(npc.name, n.name) === RELATION.HOSTILE);
     const suspicious = living.filter(n => getRelation(npc.name, n.name) === RELATION.SUSPICIOUS);
@@ -1184,54 +1179,71 @@ function decideNpcAction(npc) {
     target = hostile[0] || suspicious[0] || friendly[0] || pick(living);
   }
 
-  // 5. classify inventory
-  const invDefs   = (npc.inventory || []).map(n => OBJECTS_TABLE.find(o => o.name === n)).filter(Boolean);
-  const projectile= invDefs.find(o => o.type === 'projectile');
-  const binder    = invDefs.find(o => o.type === 'bind');
-  const melee     = invDefs.find(o => !o.type);
+  // 5️⃣  Gather inventory
+  const invDefs    = (npc.inventory || []).map(n => OBJECTS_TABLE.find(o => o.name === n)).filter(Boolean);
+  const projectile = invDefs.find(d => d.type === 'projectile');
+  const bindItem   = invDefs.find(d => d.type === 'bind');
+  const meleeItem  = invDefs.find(d => !d.type);
 
-  function chooseWeapon() {
-    if (projectile && melee) return Math.random()<0.5
-      ? { type:'throw', object:projectile.name }
-      : { type:'beat',  object:melee.name };
-    if (projectile)  return { type:'throw', object:projectile.name };
-    if (melee)       return { type:'beat',  object:melee.name };
-    if (binder)      return { type:'bind',  object:binder.name };
-    return { type:'assault', object:null };
-  }
+  // weapon chooser helper
+  const chooseWeapon = () => {
+    if (projectile && meleeItem) return Math.random() < 0.5
+      ? { type: 'throw', object: projectile.name }
+      : { type: 'beat',  object: meleeItem.name };
+    if (projectile) return { type: 'throw',  object: projectile.name };
+    if (meleeItem)  return { type: 'beat',   object: meleeItem.name };
+    if (bindItem)   return { type: 'bind',   object: bindItem.name };
+    return { type: 'assault', object: null };
+  };
 
-  // 6. decide based on relation (including a neutral–idle branch)
+  // 6️⃣  Decide based on relation + your old probabilities
   if (!target) {
-    return { type:'idle', target:null, object:null };
+    return { type: 'idle', target: null, object: null };
   }
 
   const rel = getRelation(npc.name, target.name);
+  const r   = Math.random();
+
   if (rel === RELATION.HOSTILE) {
+    // 100% violence, prefer weapons
     return { ...chooseWeapon(), target };
   }
 
-  if ( rel === RELATION.SUSPICIOUS ) {
-    const r = Math.random();
-    if (r < 0.45)      return { ...chooseWeapon(), target };
-    if (r < 0.75)      return { type:'harass', target, object:null };
-                       return { type:'steal',  target, object:null };
+  if (rel === RELATION.SUSPICIOUS) {
+    if (r < 0.40)      return { ...chooseWeapon(), target };
+    if (r < 0.70)      return { type: 'harass', target, object: null };
+                       return { type: 'steal',  target, object: null };
   }
 
-  if ( rel === RELATION.FRIENDLY ) {
-    const r = Math.random();
-    if (r < 0.40)      return { type:'help',   target, object:null };
-    if (r < 0.80)      return { type:'idle',   target:null, object:null };
-    return              Math.random()<0.5
-                       ? { type:'steal', target, object:null }
-                       : { ...chooseWeapon(), target };
+  if (rel === RELATION.FRIENDLY) {
+    if (r < 0.40) {
+      return { type: 'help', target, object: null };
+    } else {
+      // try to help your friend by picking on someone who's suspicious/hostile toward you
+      const foes = world.npcs.filter(n =>
+        getRelation(n.name, npc.name) === RELATION.SUSPICIOUS ||
+        getRelation(n.name, npc.name) === RELATION.HOSTILE
+      );
+      if (foes.length) {
+        const foe = pick(foes);
+        return getRelation(foe.name, npc.name) === RELATION.SUSPICIOUS
+          ? { type: 'harass',  target: foe, object: null }
+          : { type: 'assault', target: foe, object: null };
+      }
+      // fallback to a simple idle if no one to help
+      return { type: 'idle', target: null, object: null };
+    }
   }
 
-  // RELATION.NEUTRAL → 30% idle, otherwise provoke
-  {
-    const r = Math.random();
-    if      (r < 0.30) return { type:'idle', target:null, object:null };
-    else if (r < 0.65) return { type:'harass', target, object:null };
-    else               return { type:'steal',  target, object:null };
+  // RELATION.NEUTRAL → split old 30% idle into idle/idle2, then provoke
+  if (r < 0.15) {         // 15%
+    return { type: 'idle',  target, object: null };
+  } else if (r < 0.30) {  // next 15%
+    return { type: 'idle2', target, object: null };
+  } else if (r < 0.65) {  // 35%
+    return { type: 'harass', target, object: null };
+  } else {                // 35%
+    return { type: 'steal',  target, object: null };
   }
 }
 
@@ -1333,6 +1345,14 @@ function nextTurn(playerCmd, onFinish) {
         break;
       }
 
+
+      /* ───────────── idle2 ──────────────────────────────────────────── */
+      case 'idle2': {
+        const verb = pick(getActionVerbs('idle2'));
+        bullets.push(`${npc.emoji} the <b>${npc.name}</b> ${verb}.`);
+        break;
+      }
+      
       /* ───────────── harass (make sus) ───────────────────────────────── */
       case 'harass': {
         const verb = pick(getActionVerbs('becoming sus'));
